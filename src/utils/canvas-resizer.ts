@@ -21,42 +21,18 @@ export class CanvasManager {
         const defaultHeight = h
         const margin = 50 // Margin from borders
 
-        // Corner points
         this.points = [
             { x: margin, y: margin }, // Top-left
             { x: defaultWidth - margin, y: margin }, // Top-right
             { x: defaultWidth - margin, y: defaultHeight - margin }, // Bottom-right
             { x: margin, y: defaultHeight - margin }, // Bottom-left
         ]
-
-        this.addMiddlePoints()
-    }
-
-    private addMiddlePoints() {
-        const newPoints: Point[] = []
-        for (let i = 0; i < 4; i++) {
-            const current = this.points[i]
-            const next = this.points[(i + 1) % 4]
-
-            newPoints.push({
-                x: current.x + (next.x - current.x) / 3,
-                y: current.y + (next.y - current.y) / 3,
-            })
-            newPoints.push({
-                x: current.x + (2 * (next.x - current.x)) / 3,
-                y: current.y + (2 * (next.y - current.y)) / 3,
-            })
-        }
-
-        for (let i = 0; i < newPoints.length; i += 2) {
-            this.points.splice(i + 1 + i / 2, 0, newPoints[i], newPoints[i + 1])
-        }
     }
 
     public setCanvas(canvas: HTMLCanvasElement) {
         this.canvas = canvas
         this.ctx = canvas.getContext('2d')
-        this.removeEventListeners() // Remove any existing listeners
+        this.removeEventListeners()
         this.addEventListeners()
     }
 
@@ -81,7 +57,7 @@ export class CanvasManager {
             this.ctx.drawImage(this.image, 0, 0, this.canvas.width, this.canvas.height)
         }
 
-        // Draw lines between points
+        // Draw lines between points to form a rectangle
         this.ctx.beginPath()
         this.ctx.moveTo(this.points[0].x, this.points[0].y)
         for (let i = 1; i <= this.points.length; i++) {
@@ -92,13 +68,11 @@ export class CanvasManager {
         this.ctx.lineWidth = 2
         this.ctx.stroke()
 
-        // Draw points
+        // Draw corner points
         this.points.forEach((point) => {
             this.ctx!.fillStyle = 'transparent'
             this.ctx!.strokeStyle = '#ff0000'
             this.ctx!.lineWidth = 1
-
-            // Draw filled square with white border
             this.ctx!.fillRect(point.x - 5, point.y - 5, 10, 10)
             this.ctx!.strokeRect(point.x - 5, point.y - 5, 10, 10)
         })
@@ -106,7 +80,6 @@ export class CanvasManager {
 
     private removeEventListeners() {
         if (!this.canvas) return
-
         this.canvas.removeEventListener('mousedown', this.handleMouseDown)
         this.canvas.removeEventListener('mousemove', this.handleMouseMove)
         this.canvas.removeEventListener('mouseup', this.handleMouseUp)
@@ -115,11 +88,9 @@ export class CanvasManager {
 
     private addEventListeners() {
         if (!this.canvas) return
-
         this.canvas.addEventListener('mousedown', this.handleMouseDown)
         this.canvas.addEventListener('mousemove', this.handleMouseMove)
         this.canvas.addEventListener('mouseup', this.handleMouseUp)
-        // Add document-level mouseup to handle cases where mouse is released outside canvas
         document.addEventListener('mouseup', this.handleMouseUp)
     }
 
@@ -166,17 +137,9 @@ export class CanvasManager {
     }
 
     public extractSquareImage(targetSize: number = 500): HTMLCanvasElement | null {
-        if (!this.canvas || !this.image || this.points.length !== 12) return null
+        if (!this.canvas || !this.image || this.points.length !== 4) return null
 
         try {
-            // Create source and destination points for perspective transform
-            const srcPoints = [
-                this.points[0], // Top-left
-                this.points[3], // Top-right
-                this.points[6], // Bottom-right
-                this.points[9], // Bottom-left
-            ]
-
             // Create destination points for a square image
             const dstPoints = [
                 { x: 0, y: 0 }, // Top-left
@@ -187,14 +150,14 @@ export class CanvasManager {
 
             // Convert source points to OpenCV format
             const srcMat = cv.matFromArray(4, 1, cv.CV_32FC2, [
-                srcPoints[0].x,
-                srcPoints[0].y,
-                srcPoints[1].x,
-                srcPoints[1].y,
-                srcPoints[2].x,
-                srcPoints[2].y,
-                srcPoints[3].x,
-                srcPoints[3].y,
+                this.points[0].x,
+                this.points[0].y, // Top-left
+                this.points[1].x,
+                this.points[1].y, // Top-right
+                this.points[2].x,
+                this.points[2].y, // Bottom-right
+                this.points[3].x,
+                this.points[3].y, // Bottom-left
             ])
 
             // Convert destination points to OpenCV format

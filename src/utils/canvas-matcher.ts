@@ -22,9 +22,15 @@ export class CanvasMatcher {
     private selectedHandle: string | null = null
     private lastMousePos: Point = { x: 0, y: 0 }
     private padding: number = 5 // Padding between image and resize handles
+    private locked: boolean = false
 
     constructor() {
         this.thermoImgOpacity = 0.5
+        this.locked = false
+    }
+    public setLock(locked: boolean) {
+        this.locked = locked
+        this.draw()
     }
 
     public setCanvas(canvas: HTMLCanvasElement) {
@@ -60,7 +66,7 @@ export class CanvasMatcher {
         this.draw()
     }
 
-    private draw() {
+    public draw() {
         if (!this.ctx || !this.canvas) return
 
         // Clear canvas
@@ -87,18 +93,21 @@ export class CanvasMatcher {
             )
             this.ctx.globalAlpha = 1
 
-            // Draw resize border
-            this.ctx.strokeStyle = '#00ff00'
-            this.ctx.lineWidth = 1
-            this.ctx.strokeRect(
-                this.thermoRect.x - this.padding,
-                this.thermoRect.y - this.padding,
-                this.thermoRect.width + 2 * this.padding,
-                this.thermoRect.height + 2 * this.padding,
-            )
+            // Only draw borders and handles if not locked
+            if (!this.locked) {
+                // Draw resize border
+                this.ctx.strokeStyle = '#00ff00'
+                this.ctx.lineWidth = 1
+                this.ctx.strokeRect(
+                    this.thermoRect.x - this.padding,
+                    this.thermoRect.y - this.padding,
+                    this.thermoRect.width + 2 * this.padding,
+                    this.thermoRect.height + 2 * this.padding,
+                )
 
-            // Draw resize handles
-            this.drawResizeHandles()
+                // Draw resize handles
+                this.drawResizeHandles()
+            }
         }
     }
 
@@ -142,6 +151,8 @@ export class CanvasMatcher {
     }
 
     private handleMouseDown = (e: MouseEvent) => {
+        if (this.locked) return
+
         const mousePos = this.getMousePosition(e)
         this.lastMousePos = mousePos
 
@@ -167,6 +178,7 @@ export class CanvasMatcher {
     }
 
     private handleMouseMove = (e: MouseEvent) => {
+        if (this.locked) return
         if (!this.isDragging && !this.isResizing) return
 
         const mousePos = this.getMousePosition(e)
@@ -226,6 +238,8 @@ export class CanvasMatcher {
     }
 
     private handleMouseUp = () => {
+        if (this.locked) return
+
         this.isDragging = false
         this.isResizing = false
         this.selectedHandle = null
