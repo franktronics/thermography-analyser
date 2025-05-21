@@ -239,4 +239,83 @@ export class CanvasManager {
         }
         img.src = canvas.toDataURL('image/jpeg')
     }
+
+    public extractImageBorder(): string | null {
+        if (!this.canvas || !this.image) return null
+        if (this.points[0].x > this.canvas?.width - this.points[1].x) {
+            return this.cutImage(Math.min(this.points[0].x, this.points[3].x), 'left')
+        } else {
+            return this.cutImage(Math.max(this.points[1].x, this.points[2].x), 'right')
+        }
+    }
+
+    public cutImage(cutX: number, preserve: 'left' | 'right'): string | null {
+        if (!this.canvas || !this.image) return null
+
+        try {
+            // Validate cutX
+            if (cutX <= 0 || cutX >= this.canvas.width) {
+                console.error('Invalid cut position')
+                return null
+            }
+
+            // Create temporary canvas
+            const tempCanvas = document.createElement('canvas')
+            const tempCtx = tempCanvas.getContext('2d')
+            if (!tempCtx) return null
+
+            // Set dimensions based on preserved side
+            tempCanvas.width = preserve === 'left' ? cutX : this.canvas.width - cutX
+            tempCanvas.height = this.canvas.height
+
+            // D'abord, créons un canvas intermédiaire avec l'image complète
+            const intermediateCanvas = document.createElement('canvas')
+            intermediateCanvas.width = this.canvas.width
+            intermediateCanvas.height = this.canvas.height
+            const intermediateCtx = intermediateCanvas.getContext('2d')
+            if (!intermediateCtx) return null
+
+            // Dessiner l'image complète sur le canvas intermédiaire
+            intermediateCtx.drawImage(this.image, 0, 0, this.canvas.width, this.canvas.height)
+
+            // Maintenant, copier la portion souhaitée vers le canvas final
+            if (preserve === 'left') {
+                tempCtx.drawImage(
+                    intermediateCanvas,
+                    0, // source x
+                    0, // source y
+                    cutX, // source width
+                    this.canvas.height, // source height
+                    0, // destination x
+                    0, // destination y
+                    cutX, // destination width
+                    this.canvas.height, // destination height
+                )
+            } else {
+                tempCtx.drawImage(
+                    intermediateCanvas,
+                    cutX, // source x
+                    0, // source y
+                    this.canvas.width - cutX, // source width
+                    this.canvas.height, // source height
+                    0, // destination x
+                    0, // destination y
+                    this.canvas.width - cutX, // destination width
+                    this.canvas.height, // destination height
+                )
+            }
+
+            // Pour déboguer, vérifions que le canvas n'est pas vide
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height)
+            const hasData = imageData.data.some((channel) => channel !== 0)
+            if (!hasData) {
+                console.error('Canvas is empty after drawing')
+            }
+
+            return tempCanvas.toDataURL('image/jpeg', 1.0) // Qualité maximale
+        } catch (error) {
+            console.error('Error in cutImage:', error)
+            return null
+        }
+    }
 }

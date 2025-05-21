@@ -23,11 +23,21 @@ export class CanvasMatcher {
     private lastMousePos: Point = { x: 0, y: 0 }
     private padding: number = 5 // Padding between image and resize handles
     private locked: boolean = false
+    private handleColorPicker: ((color: { r: number; g: number; b: number }) => void) | null = null
+    private showCrosshair: boolean = false
+    private crosshairPos: Point = { x: 0, y: 0 }
 
     constructor() {
         this.thermoImgOpacity = 0.5
         this.locked = false
     }
+
+    public setColorPickerHandler(
+        handler: ((color: { r: number; g: number; b: number }) => void) | null,
+    ) {
+        this.handleColorPicker = handler
+    }
+
     public setLock(locked: boolean) {
         this.locked = locked
         this.draw()
@@ -93,9 +103,8 @@ export class CanvasMatcher {
             )
             this.ctx.globalAlpha = 1
 
-            // Only draw borders and handles if not locked
             if (!this.locked) {
-                // Draw resize border
+                // Draw resize border and handles...
                 this.ctx.strokeStyle = '#00ff00'
                 this.ctx.lineWidth = 1
                 this.ctx.strokeRect(
@@ -104,11 +113,40 @@ export class CanvasMatcher {
                     this.thermoRect.width + 2 * this.padding,
                     this.thermoRect.height + 2 * this.padding,
                 )
-
-                // Draw resize handles
                 this.drawResizeHandles()
             }
         }
+
+        // Draw crosshair when locked and hovering
+        if (this.locked && this.showCrosshair) {
+            this.drawCrosshair()
+        }
+    }
+
+    private drawCrosshair() {
+        if (!this.ctx) return
+
+        const size = 10 // Taille de la croix
+        this.ctx.beginPath()
+        this.ctx.strokeStyle = '#ffffff'
+        this.ctx.lineWidth = 3
+        // Ligne horizontale
+        this.ctx.moveTo(this.crosshairPos.x - size, this.crosshairPos.y)
+        this.ctx.lineTo(this.crosshairPos.x + size, this.crosshairPos.y)
+        // Ligne verticale
+        this.ctx.moveTo(this.crosshairPos.x, this.crosshairPos.y - size)
+        this.ctx.lineTo(this.crosshairPos.x, this.crosshairPos.y + size)
+        this.ctx.stroke()
+
+        // Contour noir pour meilleure visibilité
+        this.ctx.beginPath()
+        this.ctx.strokeStyle = '#000000'
+        this.ctx.lineWidth = 1
+        this.ctx.moveTo(this.crosshairPos.x - size, this.crosshairPos.y)
+        this.ctx.lineTo(this.crosshairPos.x + size, this.crosshairPos.y)
+        this.ctx.moveTo(this.crosshairPos.x, this.crosshairPos.y - size)
+        this.ctx.lineTo(this.crosshairPos.x, this.crosshairPos.y + size)
+        this.ctx.stroke()
     }
 
     private drawResizeHandles() {
@@ -251,6 +289,10 @@ export class CanvasMatcher {
         this.canvas.removeEventListener('mousedown', this.handleMouseDown)
         document.removeEventListener('mousemove', this.handleMouseMove)
         document.removeEventListener('mouseup', this.handleMouseUp)
+
+        this.canvas.removeEventListener('mousemove', this.handleCrosshairMove)
+        this.canvas.removeEventListener('mouseenter', this.handleCanvasEnter)
+        this.canvas.removeEventListener('mouseleave', this.handleCanvasLeave)
     }
 
     private addEventListeners() {
@@ -259,5 +301,74 @@ export class CanvasMatcher {
         this.canvas.addEventListener('mousedown', this.handleMouseDown)
         document.addEventListener('mousemove', this.handleMouseMove)
         document.addEventListener('mouseup', this.handleMouseUp)
+
+        this.canvas.addEventListener('mousemove', this.handleCrosshairMove)
+        this.canvas.addEventListener('mouseenter', this.handleCanvasEnter)
+        this.canvas.addEventListener('mouseleave', this.handleCanvasLeave)
+    }
+
+    private handleCanvasEnter = () => {
+        if (this.locked) {
+            this.showCrosshair = true
+            this.draw()
+        }
+    }
+
+    private handleCanvasLeave = () => {
+        this.showCrosshair = false
+        this.draw()
+    }
+
+    private handleCrosshairMove = (e: MouseEvent) => {
+        if (!this.locked || !this.thermoImage) return
+
+        const mousePos = this.getMousePosition(e)
+        this.crosshairPos = mousePos
+
+        // Verify if the mouse is inside the thermo image
+        if (this.isInsideThermoImage(mousePos)) {
+            const color = this.getColorAtPoint(mousePos)
+            if (color && this.handleColorPicker) {
+                this.handleColorPicker(color)
+            }
+        }
+
+        this.draw()
+    }
+
+    private isInsideThermoImage(point: Point): boolean {
+        return (
+            point.x >= this.thermoRect.x &&
+            point.x <= this.thermoRect.x + this.thermoRect.width &&
+            point.y >= this.thermoRect.y &&
+            point.y <= this.thermoRect.y + this.thermoRect.height
+        )
+    }
+
+    private getColorAtPoint(point: Point): { r: number; g: number; b: number } | null {
+        if (!this.thermoImage || !this.ctx) return null
+
+        // Create a temporary canvas to extract pixel data
+        const tempCanvas = document.createElement('canvas')
+        tempCanvas.width = this.thermoRect.width
+        tempCanvas.height = this.thermoRect.height
+        const tempCtx = tempCanvas.getContext('2d')
+        if (!tempCtx) return null
+
+        // Draw the thermo image on the temporary canvas without opacity
+        tempCtx.drawImage(this.thermoImage, 0, 0, this.thermoRect.width, this.thermoRect.height)
+
+        // Calculate the relative position of the point in the thermo image
+        const relativeX = point.x - this.thermoRect.x
+        const relativeY = point.y - this.thermoRect.y
+
+        // Get the pixel data at the point
+        const pixelData = tempCtx.getImageData(relativeX, relativeY, 1, 1).data
+
+        return {
+            r: pixelData[0],
+            g: pixelData[1],
+            b: pixelData[2],
+        }
     }
 }

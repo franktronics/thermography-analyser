@@ -13,7 +13,7 @@ import { ImageResizer } from '@/components/organisms/image-resizer.tsx'
 import { Button } from '@/components/ui/button.tsx'
 import { useShallow } from 'zustand/react/shallow'
 import { ImageMatch } from '@/components/organisms/image-match.tsx'
-import { useCanvasStore } from '@/stores/canvas-store.ts'
+import { useCanvasStore } from '@/stores/canvas-store.tsx'
 
 type ResizerDialogProps = {} & ComponentPropsWithoutRef<typeof DialogContent>
 
@@ -80,6 +80,7 @@ export const ResizerDialog = (props: ResizerDialogProps) => {
                     <Button
                         type="button"
                         onClick={() => {
+                            matcherCanvasManager.setLock(true)
                             setSaved(true)
                             setOpen(false)
                         }}
