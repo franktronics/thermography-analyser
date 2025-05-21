@@ -87,7 +87,7 @@ export default function HomePage() {
                                     id="opacity-slider"
                                     defaultValue={[50]}
                                     value={[opacity]}
-                                    onValueChange={(v) => {
+                                    onValueChange={(v: number[]) => {
                                         setOpacity(v[0])
                                         matcherCanvasManager.setOpacity(v[0] / 100)
                                     }}
